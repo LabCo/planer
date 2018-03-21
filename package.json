@@ -20,7 +20,7 @@
     "reply",
     "talon"
   ],
-  "author": "Leighton Wallace (https://github.com/l8on)",
+  "contributors": [ "Michael Charkin", "Leighton Wallace (https://github.com/l8on)"],
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/lever/planer/issues"
