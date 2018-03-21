@@ -1,6 +1,6 @@
 {
   "name": "lab-planer",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Remove reply quotations from emails, LabLabLab's fork",
   "main": "lib/planer.js",
   "publishConfig": {
