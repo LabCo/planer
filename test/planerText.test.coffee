@@ -360,6 +360,32 @@ describe 'planer#extractFromPlain', ->
       Text"""
     expect(planer.extractFromPlain(msgBody)).to.equal('Blah')
 
+  it 'remove forwarded messages if specified to remove', ->
+    msgBody = """FYI
+
+    ---------- Forwarded message ----------
+    From: bob@example.com
+    Date: Tue, Sep 4, 2012 at 1:35 PM
+    Subject: Two
+    line subject
+    To: rob@example.com
+
+    Text"""
+    expect(planer.extractFromPlain(msgBody, true)).to.equal('FYI')
+
+  it 'remove quoted forwarded messages if specified to remove', ->
+    msgBody = """FYI
+
+    ---------- Forwarded message ----------
+    From: bob@example.com
+    Date: Tue, Sep 4, 2012 at 1:35 PM
+    Subject: Two
+    line subject
+    To: rob@example.com
+
+    > Text"""
+    expect(planer.extractFromPlain(msgBody, true)).to.equal('FYI')
+
   it 'can handle a message with 2 links', ->
     msgBody = "<http://link1> <http://link2>"
     expect(planer.extractFromPlain(msgBody)).to.equal(msgBody)

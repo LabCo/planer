@@ -12,12 +12,13 @@ MAX_LINE_LENGTH = 200000
 # @param msgBody [String] the html content of the email
 # @param contentType [String] the contentType of the email. Only `text/plain` and `text/html` are supported.
 # @param dom [Document] the document object to use for html parsing.
+# @param removeFwd [Boolean] a flag that tells if the forwarded body should be stripped, it is keps by default
 # @return [String] the text/html of the actual message without quotations
-exports.extractFrom = (msgBody, contentType= 'text/plain', dom = null) ->
+exports.extractFrom = (msgBody, contentType= 'text/plain', dom = null, removeFwd = false) ->
   if contentType == 'text/plain'
-    return exports.extractFromPlain msgBody
+    return exports.extractFromPlain msgBody, removeFwd
   else if contentType == 'text/html'
-    return exports.extractFromHtml msgBody, dom
+    return exports.extractFromHtml msgBody, dom, removeFwd
   else
     console.warn('Unknown contentType', contentType)
 
@@ -33,14 +34,15 @@ exports.extractFrom = (msgBody, contentType= 'text/plain', dom = null) ->
 # remove changes made by algorithm.
 #
 # @param msgBody [String] the html content of the email
+# @param removeFwd [Boolean] a flag that tells if the forwarded body should be stripped, it is keps by default
 # @return [String] the text of the message without quotations
-exports.extractFromPlain = (msgBody) ->
+exports.extractFromPlain = (msgBody, removeFwd) ->
   delimiter = getDelimiter msgBody
   msgBody = preprocess msgBody, delimiter
 
   lines = msgBody.split delimiter, MAX_LINES_COUNT
   markers = exports.markMessageLines lines
-  lines = exports.processMarkedLines lines, markers
+  lines = exports.processMarkedLines lines, markers, {}, removeFwd
 
   msgBody = lines.join delimiter
   msgBody = postprocess msgBody
@@ -67,7 +69,8 @@ exports.extractFromPlain = (msgBody) ->
 # @param dom [Document] a document object or equivalent implementation.
 #   Must respond to `DOMImplementation.createHTMLDocument()`.
 #   @see https://developer.mozilla.org/en-US/docs/Web/API/DOMImplementation/createHTMLDocument
-exports.extractFromHtml = (msgBody, dom) ->
+# @param removeFwd [Boolean] a flag that tells if the forwarded body should be stripped, it is keps by default
+exports.extractFromHtml = (msgBody, dom, removeFwd) ->
   unless dom?
     console.error("No dom provided to parse html.")
     return msgBody
@@ -117,7 +120,7 @@ exports.extractFromHtml = (msgBody, dom) ->
 
   markers = exports.markMessageLines lines
   returnFlags = {}
-  exports.processMarkedLines(lines, markers, returnFlags)
+  exports.processMarkedLines(lines, markers, returnFlags, removeFwd)
 
   # No lines deleted by plain text algorithm, ready to return
   if !returnFlags.wereLinesDeleted
@@ -196,15 +199,26 @@ isSplitter = (line) ->
 # Will also modify the provided returnFlags object and set the following properties:
 # returnFlags = { wereLinesDeleted: (true|false), firstLine: (Number), lastLine: (Number) }
 # @see setReturnFlags
-exports.processMarkedLines = (lines, markers, returnFlags = {}) ->
+exports.processMarkedLines = (lines, markers, returnFlags = {}, removeFwd) ->
   # If there are no splitters there should be no markers
   if markers.indexOf('s') < 0 && !/(me*){3}/.test(markers)
     markers = markers.replace(/m/g, 't')
 
   # If the message is a forward do nothing.
-  if /^[te]*f/.test(markers)
+  fwdMsgMatch = /^([te]*)f/.exec(markers)
+  if fwdMsgMatch && removeFwd != true
+    console.log("skipping  removeFwd:", removeFwd)
     setReturnFlags returnFlags, false, -1, -1
     return lines
+
+  # remove any forward lines
+  if(fwdMsgMatch) 
+    matchValue = fwdMsgMatch[1]
+    startIds = 0
+    endIdx = matchValue.length
+    endCutIdx = markers.length
+    setReturnFlags returnFlags, false, endIdx, endCutIdx
+    return lines.slice(0, endIdx)
 
   # Find inline replies (tm's following the first m in markers string)
   inlineMatchRegex = new RegExp('m(?=e*((?:t+e*)+)m)', 'g')
